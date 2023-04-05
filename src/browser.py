@@ -1,5 +1,6 @@
 import socket
 import sys
+import ssl
 
 # get url from arguments
 def init():
@@ -23,10 +24,17 @@ def show(body):
             print(char, end="")
 
 def request(url):
-    assert url.startswith("http://")
-    url = url[len("http://"):]
+    scheme, url = url.split("://", 1)
+    assert scheme in ["http", "https"], "Unknown scheme {}".format(scheme)
+   
+
     host, path = url.split("/", 1)
     path = "/" + path
+    
+    port = 80 if scheme == "http" else 443
+    if ":" in host:
+        host, port = host.split(":", 1)
+        port = int(port)
 
     s = socket.socket(
         family=socket.AF_INET,
@@ -34,7 +42,11 @@ def request(url):
         proto=socket.IPPROTO_TCP,
     )
 
-    s.connect((host, 80))
+    s.connect((host, port))
+    if scheme == "https":
+        ctx = ssl.create_default_context()
+        s = ctx.wrap_socket(s, server_hostname=host)
+
     s.send("GET {} HTTP/1.0\r\n".format(path).encode("utf8") + 
        "Host: {}\r\n\r\n".format(host).encode("utf8"))
     
@@ -55,5 +67,6 @@ def request(url):
     s.close()
 
     return headers, body
+    # return {}, ''
 
 init()
